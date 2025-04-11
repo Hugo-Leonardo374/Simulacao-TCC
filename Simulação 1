@@ -1,0 +1,185 @@
+!pip install translate
+!pip install opencv-python numpy tensorflow speechrecognition pygame pillow
+import requests
+from io import BytesIO
+from translate import Translator
+import sys
+
+
+# %% [markdown]
+# # 🤖 Simulador de Braço Robótico com IA
+# > Projeto de TCC - Engenharia Mecânica
+# > *Reconhecimento de objetos por voz + visão computacional*
+
+# %% [markdown]
+# ## 1. Configuração do Ambiente
+# Instalação das bibliotecas necessárias:
+
+
+# %% [markdown]
+# ## 2. Módulo de Visão Computacional (Simulado)
+# Usaremos imagens de exemplo ou sua webcam:
+
+# %%
+import cv2
+import numpy as np
+from IPython.display import display, Image, clear_output
+import ipywidgets as widgets
+
+# Escolha o modo de simulação
+mode = widgets.Dropdown(
+    options=['Webcam', 'Imagem de Exemplo'],
+    value='Imagem de Exemplo',
+    description='Fonte de Imagem:'
+)
+display(mode)
+
+Link_Imagem = input("Digite o link da imagem: ")
+url = Link_Imagem
+
+# %%
+def simulate_camera():
+    if mode.value == 'Webcam':
+        # Captura da webcam
+        cap = cv2.VideoCapture(0)
+        ret, frame = cap.read()
+        cap.release()
+        return frame
+    else:
+        # Imagem de exemplo (garrafa)
+        response = requests.get(url)
+        if response.status_code != 200:
+            raise ValueError(f"Erro ao acessar a URL (status: {response.status_code})")
+        img_bytes = BytesIO(response.content)
+        img_array = np.asarray(bytearray(img_bytes.read()), dtype=np.uint8)
+        img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+        return img
+
+# Mostra a imagem capturada
+img = simulate_camera()
+cv2.imwrite('captured.jpg', img)
+display(Image('captured.jpg', width=300))
+
+# %% [markdown]
+# ## 3. Reconhecimento de Objetos com IA
+
+# %%
+from tensorflow.keras.applications import MobileNetV2
+from tensorflow.keras.preprocessing import image
+from tensorflow.keras.applications.mobilenet_v2 import preprocess_input, decode_predictions
+
+# Carrega o modelo pré-treinado
+model = MobileNetV2(weights='imagenet')
+
+# Pré-processamento da imagem
+img_processed = cv2.resize(img, (224, 224))
+x = image.img_to_array(img_processed)
+x = np.expand_dims(x, axis=0)
+x = preprocess_input(x)
+
+# Predição
+preds = model.predict(x)
+results = decode_predictions(preds, top=3)[0]
+
+translator = Translator(to_lang="pt")
+
+
+print("🔍 Objeto reconhecido:")
+for i, (_, name, prob) in enumerate(results):
+    nome_pt = translator.translate(name)
+    print(f"{i+1}. {nome_pt} ({prob*100:.2f}%)")
+    nome1_pt = translator.translate(results[0][1])
+# %% [markdown]
+# ## 4. Módulo de Voz (Simulado)
+
+# %%
+import speech_recognition as sr
+import pygame
+
+# Configuração do simulador de voz
+print("🎤 Simulador de Comando de Voz")
+print("Opções válidas: 'O que é esse item' ou 'Sair'")
+
+# Simulando o comando (no Colab usamos input)
+comando = input("Digite o comando de voz: ").lower()
+
+if "o que é esse item" in comando:
+    print("🤖 Braço movendo para posição de análise...")
+    print(f"✅ Resultado: {nome1_pt}")
+elif "sair" in comando:
+    print("🔴 Encerrando sistema...")
+    sys.exit()
+else:
+    print("⚠️ Comando não reconhecido")
+
+# %% [markdown]
+# ## 5. Simulação do Braço Robótico
+
+# %%
+# Simulação gráfica simples
+print("\nSimulação do movimento do braço:")
+
+# ASCII Art do braço
+print("""
+       ↑
+       |
+   ----+----
+  /    |    \\
+ /     |     \\
+/      |      \\
+""")
+
+print(f"Posicionando para analisar: {results[0][1]}")
+print("""
+       ⇧
+       |
+   ----+----
+  /    ⇩    \\
+ /     ⇩     \\
+/      ⇩      \\
+""")
+
+# %% [markdown]
+# ## 6. Integração Completa (Simulada)
+
+# %%
+class SistemaRobo:
+    def __init__(self):
+        self.banco_dados = {
+            'water_bottle': 'Garrafa de Água',
+            'keyboard': 'Teclado'
+        }
+
+    def processar_comando(self, comando):
+        if "o que é esse item" in comando:
+            # Simula visão computacional
+            img = simulate_camera()
+            obj = results[0][1]
+            obj_pt = translator.translate(obj)
+
+            # Verifica no banco de dados simulado
+            nome = self.banco_dados.get(obj, None)
+
+            if nome:
+                print(f"✅ Objeto reconhecido: {nome1_pt}")
+            else:
+                print(f"🔍 Objeto não cadastrado. Adicionando '{obj_pt}' ao banco...")
+                self.banco_dados[obj] = obj
+                print(f"📝 Novo objeto aprendido: {obj_pt}")
+
+            # Simula movimento
+            print("\nMovimento do braço:")
+            print("""
+            Posição Inicial → Posição de Análise
+                  ⇩
+               [=====]
+              /  ⇧  \\
+             /   ⇧   \\
+            /    ⇧    \\
+            """)
+
+            return nome1_pt or obj_pt
+
+# Teste
+robo = SistemaRobo()
+robo.processar_comando("o que é esse item")
